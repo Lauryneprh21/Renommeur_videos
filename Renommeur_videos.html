@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Renommer des vidéos (.mov) — IOMA_DiagVidéos#</title>
+  <style>
+    :root{--bg:#0b0c10;--card:#121318;--muted:#9aa3b2;--text:#e7ecf3;--accent:#6ee7b7;--accent2:#a78bfa;--danger:#f87171}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(135deg,#0b0c10,#141824);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+    .wrap{max-width:960px;margin:40px auto;padding:24px}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02));backdrop-filter: blur(6px);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    h1{font-size:28px;margin:0 0 4px}
+    .sub{color:var(--muted);margin:0 0 16px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+    input[type="text"],input[type="number"],select{width:100%;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.12);background:#0f1118;color:var(--text)}
+    input[type="number"]{appearance:textfield}
+    .btn{appearance:none;border:0;border-radius:14px;padding:12px 16px;font-weight:600;color:#0b0c10;background:var(--accent);cursor:pointer;transition:transform .06s ease, filter .2s ease}
+    .btn:hover{transform:translateY(-1px);filter:brightness(1.05)}
+    .btn.secondary{background:var(--accent2);color:#0b0c10}
+    .btn.ghost{background:transparent;color:var(--text);border:1px dashed rgba(255,255,255,.2)}
+    .btn.danger{background:var(--danger);color:#0b0c10}
+    .controls{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 6px}
+    .hint{font-size:12px;color:var(--muted)}
+    .panel{margin-top:18px;padding:14px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07)}
+    .zone{border:1.5px dashed rgba(255,255,255,.18);border-radius:16px;padding:18px;text-align:center;color:var(--muted);transition:background .2s}
+    .zone.dragover{background:rgba(167,139,250,.1)}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{font-size:13px;padding:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+    th{color:var(--muted);text-align:left;font-weight:600}
+    .ok{color:var(--accent)}
+    .warn{color:#fbbf24}
+    .err{color:var(--danger)}
+    .log{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;white-space:pre-wrap}
+    @media (max-width:720px){.row{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Renommer des vidéos (.mov)</h1>
+      <p class="sub">Local et privé : rien n’est téléversé. Choisis un dossier <em>ou</em> dépose des fichiers. Modèle par défaut : <strong>IOMA_DiagVidéos#</strong> → <code>IOMA_DiagVidéos1.mov</code>, <code>IOMA_DiagVidéos2.mov</code>…</p>
+
+      <div class="row">
+        <div>
+          <label for="prefix">Préfixe</label>
+          <input id="prefix" type="text" value="IOMA_DiagVidéos" placeholder="Ex : IOMA_DiagVidéos" />
+        </div>
+        <div>
+          <label for="start">Index de départ</label>
+          <input id="start" type="number" min="0" value="1" />
+        </div>
+        <div>
+          <label for="padding">Zéro‑padding (optionnel)</label>
+          <input id="padding" type="number" min="0" max="6" value="0" />
+        </div>
+        <div>
+          <label for="ext">Extension ciblée</label>
+          <select id="ext">
+            <option value="mov">.mov</option>
+            <option value="mp4">.mp4</option>
+            <option value="m4v">.m4v</option>
+            <option value="all">Tous formats vidéo</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn" id="pickFolder">1) Choisir un dossier (Chrome/Edge)</button>
+        <button class="btn secondary" id="scanBtn">2) Prévisualiser</button>
+        <button class="btn" id="renameBtn">3) Renommer dans le dossier</button>
+        <button class="btn ghost" id="clearBtn">Vider la sélection</button>
+      </div>
+      <p class="hint">Astuce : si l’accès dossier n’est pas dispo, utilise le dépôt de fichiers ci‑dessous pour générer des <em>copies renommées</em> à télécharger.</p>
+
+      <div class="panel">
+        <div id="dropZone" class="zone">Dépose ici tes vidéos (.mov, .mp4…) — ou clique pour sélectionner</div>
+        <input type="file" id="filePicker" hidden multiple accept="video/*" />
+        <div id="count" class="hint" style="margin-top:8px"></div>
+        <div id="preview"></div>
+      </div>
+
+      <div class="controls" style="margin-top:14px">
+        <button class="btn secondary" id="downloadRenamed">Télécharger les copies renommées (mode dépôt)</button>
+      </div>
+
+      <div class="panel">
+        <strong>Journal</strong>
+        <div id="log" class="log"></div>
+      </div>
+
+      <p class="hint" style="margin-top:12px">Compatibilité dossier : Chrome/Edge 86+ sur desktop. Le renommage en place copie→supprime (pas de perte, mais la date de modification change).</p>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const prefixEl = document.getElementById('prefix');
+  const startEl  = document.getElementById('start');
+  const padEl    = document.getElementById('padding');
+  const extEl    = document.getElementById('ext');
+
+  const pickFolderBtn = document.getElementById('pickFolder');
+  const scanBtn   = document.getElementById('scanBtn');
+  const renameBtn = document.getElementById('renameBtn');
+  const clearBtn  = document.getElementById('clearBtn');
+
+  const dropZone = document.getElementById('dropZone');
+  const filePicker = document.getElementById('filePicker');
+  const downloadRenamedBtn = document.getElementById('downloadRenamed');
+
+  const previewEl = document.getElementById('preview');
+  const countEl = document.getElementById('count');
+  const logEl = document.getElementById('log');
+
+  let dirHandle = null;             // Dossier courant (File System Access API)
+  let folderFiles = [];             // [{handle, name, size, type}]
+  let droppedFiles = [];            // File[] pour le mode dépôt
+
+  function log(msg, cls){
+    const line = document.createElement('div');
+    if(cls) line.className = cls;
+    line.textContent = msg;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function leftPad(n, width){
+    const s = String(n);
+    const w = Math.max(0, parseInt(padEl.value||0,10));
+    return w>0 ? s.padStart(w,'0') : s;
+  }
+
+  function newNameForIndex(i){
+    return `${prefixEl.value}${leftPad(i)}`;
+  }
+
+  function matchesExt(name){
+    const sel = extEl.value;
+    if(sel === 'all') return true;
+    const ext = '.'+sel.toLowerCase();
+    return name.toLowerCase().endsWith(ext);
+  }
+
+  function buildPreview(items){
+    if(!items.length){ previewEl.innerHTML = ''; countEl.textContent='Aucun fichier.'; return; }
+    const start = parseInt(startEl.value||1,10);
+    const rows = items
+      .slice()
+      .sort((a,b)=> a.name.localeCompare(b.name, undefined, {numeric:true}))
+      .map((it, idx) => ({old: it.name, proposed: `${newNameForIndex(start+idx)}${extFrom(it.name)}`}));
+
+    const tbl = document.createElement('table');
+    const thead = document.createElement('thead');
+    thead.innerHTML = `<tr><th>Ancien nom</th><th>Nouveau nom</th><th>État</th></tr>`;
+    tbl.appendChild(thead);
+    const tbody = document.createElement('tbody');
+
+    const nameSet = new Set(items.map(i=>i.name));
+
+    rows.forEach(r=>{
+      const tr = document.createElement('tr');
+      const conflict = nameSet.has(r.proposed);
+      tr.innerHTML = `<td>${r.old}</td><td><code>${r.proposed}</code></td><td>${conflict?'<span class="warn">Conflit (existe déjà)</span>':'<span class="ok">OK</span>'}</td>`;
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    previewEl.innerHTML = '';
+    previewEl.appendChild(tbl);
+    countEl.textContent = `${items.length} fichier(s) détecté(s)`;
+  }
+
+  function extFrom(name){
+    const i = name.lastIndexOf('.');
+    return i>=0 ? name.slice(i) : '';
+  }
+
+  // ————— Mode dossier (File System Access API)
+  pickFolderBtn.addEventListener('click', async ()=>{
+    try{
+      if(!window.showDirectoryPicker){
+        alert('Accès dossier non supporté par ce navigateur. Utilise Chrome/Edge sur desktop, ou le mode dépôt de fichiers ci-dessous.');
+        return;
+      }
+      dirHandle = await window.showDirectoryPicker({ mode:'readwrite' });
+      log('Dossier sélectionné.');
+      folderFiles = [];
+      for await (const entry of dirHandle.values()){
+        if(entry.kind === 'file'){
+          const name = entry.name;
+          if(matchesExt(name) || (extEl.value==='all' && name.match(/\.(mov|mp4|m4v|avi|mkv|webm)$/i))){
+            folderFiles.push({handle: entry, name});
+          }
+        }
+      }
+      buildPreview(folderFiles);
+    }catch(err){
+      log('Sélection dossier annulée ou refusée.','err');
+      console.error(err);
+    }
+  });
+
+  scanBtn.addEventListener('click', ()=>{
+    if(dirHandle){
+      buildPreview(folderFiles);
+    } else if(droppedFiles.length){
+      const items = droppedFiles.map(f=>({name:f.name})).filter(it => matchesExt(it.name) || (extEl.value==='all'));
+      buildPreview(items);
+    } else {
+      alert('Choisis un dossier ou dépose des fichiers.');
+    }
+  });
+
+  renameBtn.addEventListener('click', async ()=>{
+    if(!dirHandle){
+      alert('Renommage en place nécessite un dossier (Chrome/Edge). Sinon utilise "Télécharger les copies renommées".');
+      return;
+    }
+    if(!folderFiles.length){
+      alert('Aucun fichier correspondant dans le dossier.');
+      return;
+    }
+    const start = parseInt(startEl.value||1,10);
+    // Tri stable par nom pour un ordre déterministe
+    const items = folderFiles.slice().sort((a,b)=> a.name.localeCompare(b.name, undefined, {numeric:true}));
+    let i = 0, renamed = 0, skipped = 0;
+    for(const it of items){
+      i++;
+      const newBase = newNameForIndex(start + (i-1));
+      const newName = `${newBase}${extFrom(it.name)}`;
+      if(newName === it.name){
+        log(`⏭️  Déjà conforme : ${it.name}`);
+        skipped++; continue;
+      }
+      // Conflit ?
+      try{
+        // Si un fichier du même nom existe déjà, on journalise et passe.
+        await dirHandle.getFileHandle(newName);
+        log(`⚠️  Conflit : ${newName} existe déjà.`, 'warn');
+        skipped++; continue;
+      }catch{
+        // OK, pas de fichier existant → on peut créer
+      }
+      try{
+        const file = await it.handle.getFile();
+        const newHandle = await dirHandle.getFileHandle(newName, { create: true });
+        const w = await newHandle.createWritable();
+        await w.write(await file.arrayBuffer());
+        await w.close();
+        await dirHandle.removeEntry(it.name); // supprime l’ancien (simulateur de renommage)
+        log(`✅ Renommé : ${it.name} → ${newName}`);
+        renamed++;
+      }catch(err){
+        console.error(err);
+        log(`❌ Échec : ${it.name} → ${newName}`,'err');
+        skipped++;
+      }
+    }
+    log(`Terminé. ${renamed} renommé(s), ${skipped} ignoré(s).`);
+    // Rafraîchir la liste
+    folderFiles = [];
+    for await (const entry of dirHandle.values()){
+      if(entry.kind === 'file'){
+        const name = entry.name;
+        if(matchesExt(name) || (extEl.value==='all' && name.match(/\.(mov|mp4|m4v|avi|mkv|webm)$/i))){
+          folderFiles.push({handle: entry, name});
+        }
+      }
+    }
+    buildPreview(folderFiles);
+  });
+
+  clearBtn.addEventListener('click', ()=>{
+    droppedFiles = []; folderFiles = []; dirHandle = null; previewEl.innerHTML=''; countEl.textContent=''; log('Sélection vidée.');
+  });
+
+  // ————— Mode dépôt (copies renommées à télécharger)
+  dropZone.addEventListener('click', ()=> filePicker.click());
+  dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e=>{
+    e.preventDefault(); dropZone.classList.remove('dragover');
+    const files = Array.from(e.dataTransfer.files || []);
+    if(!files.length) return;
+    droppedFiles.push(...files);
+    const items = droppedFiles.map(f=>({name:f.name})).filter(it => matchesExt(it.name) || (extEl.value==='all'));
+    buildPreview(items);
+  });
+  filePicker.addEventListener('change', e=>{
+    const files = Array.from(e.target.files || []);
+    if(!files.length) return;
+    droppedFiles.push(...files);
+    const items = droppedFiles.map(f=>({name:f.name})).filter(it => matchesExt(it.name) || (extEl.value==='all'));
+    buildPreview(items);
+  });
+
+  downloadRenamedBtn.addEventListener('click', async ()=>{
+    if(!droppedFiles.length){
+      alert('Dépose des fichiers d’abord.'); return;
+    }
+    const start = parseInt(startEl.value||1,10);
+    const files = droppedFiles
+      .filter(f => matchesExt(f.name) || (extEl.value==='all'))
+      .sort((a,b)=> a.name.localeCompare(b.name, undefined, {numeric:true}));
+    let i = 0; let count = 0;
+    for(const f of files){
+      i++;
+      const newBase = newNameForIndex(start + (i-1));
+      const newName = `${newBase}${extFrom(f.name)}`;
+      const url = URL.createObjectURL(f);
+      const a = document.createElement('a');
+      a.href = url; a.download = newName; document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      count++;
+      await new Promise(r=>setTimeout(r, 80)); // laisser respirer le navigateur
+    }
+    log(`Téléchargement de ${count} copie(s) renommée(s) lancé.`);
+  });
+})();
+</script>
+</body>
+</html>
